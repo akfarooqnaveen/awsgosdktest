@@ -1,74 +1,90 @@
 package main
 
 import (
-	"context"
+	// "context"
 	"log"
-	"github.com/aws/aws-sdk-go-v2/aws"
-	"github.com/aws/aws-sdk-go-v2/config"
-	"github.com/aws/aws-sdk-go-v2/service/dlm"
+	aws "github.com/aws/aws-sdk-go/aws"
+	"github.com/aws/aws-sdk-go/aws/session"
+	// "github.com/aws/aws-sdk-go-v2/config"
+	"github.com/aws/aws-sdk-go/service/dlm"
 )
 
 
 
 func main() {
 	// Load the Shared AWS Configuration (~/.aws/config)
-	config, err := config.LoadDefaultConfig(context.TODO())
-	if err != nil {
-		log.Fatal(err)
-	}
+	// config, err := config.LoadDefaultConfig(context.TODO())
+	// if err != nil {
+	// 	log.Fatal(err)
+	// }
 
 	// Create an Amazon S3 service client
 	//client := ebs.NewFromConfig(config)
-	session := 
-	mySession := session.Must(session.NewSession())
+	session := session.New(&aws.Config{Region: aws.String("us-east-2")})
+	// mySession := session.Must(session.NewSession())
 
 	// Create a DLM client from just a session.
-	svc := dlm.New(mySession)
+	client := dlm.New(session)
 
-	times := []string{"09:00"}
-	var cr CreateRule
+	var time string = "09:00"
+	times := []*string{&time}
+	var cr dlm.CreateRule
 	cr.SetInterval(12)
 	cr.SetIntervalUnit("HOURS")
 	cr.SetLocation("CLOUD")
-	cr.SetTimes(&times)
+	cr.SetTimes(times)
 
-	var rr RetainRule
+	var rr dlm.RetainRule
 	rr.SetCount(1)
-	rr.SetInterval(0)
+	// rr.SetInterval(1)
 
-	schedules := []Schedule
-	var s Schedule
+	schedules := []*dlm.Schedule{}
+	var s dlm.Schedule
 	s.SetCreateRule(&cr)
 	s.SetName("Schedule1")
 	s.SetRetainRule(&rr)
 
-	schedules = append(schedules, s)
+	schedules = append(schedules, &s)
 
-	resourceTypes := []string{"VOLUME"}
-	resourceLocations := []string{"CLOUD"}
+	var ResourceType string = "VOLUME"
+	var ResourceLocation string ="CLOUD"
+	resourceTypes := []*string{&ResourceType}
+	resourceLocations := []*string{&ResourceLocation}
 
-	targetTags := []Tags
-	var targetTag1 Tags
-	targetTag1.SetKey("snapshottest")
-	targetTag1.SetValue("true")
+	var Key string = "snapshottest"
+	var Value string = "true"
+	var targetTag dlm.Tag = dlm.Tag{
+		Key: &Key,
+		Value: &Value,
+	}
+	targetTags := []*dlm.Tag{}
+	targetTags = append(targetTags, &targetTag)
+	// var targetTags map[string]*string
+	// var Value string = "true"
+	// targetTags["snapshottest"] = &Value
+	// targetTags := []aws.Tags{}
+	// var targetTag1 Tags
+	// targetTag1.SetKey("snapshottest")
+	// targetTag1.SetValue("true")
 
-	targetTags = append(targetTags, targetTag1)
+	// targetTags = append(targetTags, targetTag1)
 
-	var p PolicyDetails
+	var p dlm.PolicyDetails
 	// p.SetParameters()
 	p.SetPolicyType("EBS_SNAPSHOT_MANAGEMENT")
-	p.SetResourceLocations(&resourceLocations)
-	p.SetResourceTypes(&resourceTypes)
-	p.SetSchedules(&schedules)
-	p.SetTargetTags(&targetTags)
+	p.SetResourceLocations(resourceLocations)
+	p.SetResourceTypes(resourceTypes)
+	p.SetSchedules(schedules)
+	p.SetTargetTags(targetTags)
 
-	var lpi CreateLifecyclePolicyInput
+	var lpi dlm.CreateLifecyclePolicyInput
 	lpi.SetDescription("frq-policy")
-	lpi.SetExecutionRoleArn("")
-	lpi.SetPolicyDetails("")
-	lpi.SetState("")
+	lpi.SetExecutionRoleArn("arn:aws:iam::731556103348:role/service-role/AWSDataLifecycleManagerDefaultRole")
+	lpi.SetPolicyDetails(&p)
+	lpi.SetState("ENABLED")
 
-	CreateLifecyclePolicyInput{Description: "policy123",ExecutionRoleArn: "",PolicyDetails: "",State: ""}        
+	req, output := client.CreateLifecyclePolicyRequest(&lpi)
+	// CreateLifecyclePolicyInput{Description: "policy123",ExecutionRoleArn: "",PolicyDetails: "",State: ""}        
 	// Get the first page of results for ListObjectsV2 for a bucket
 	//output, err := client.ListObjectsV2(context.TODO(), &s3.ListObjectsV2Input{
 	//	Bucket: aws.String("my-bucket"),
@@ -78,19 +94,21 @@ func main() {
 	//	log.Fatal(err)
 	//}
 
-	log.Println("first page results:")
+	log.Println("Before send")
 	//for _, object := range output.Contents {
 	//	log.Printf("key=%s size=%d", aws.ToString(object.Key), object.Size)
 	//}
 
-	req, resp := client.CreateLifecyclePolicyRequest(&ebs.CreateLifecyclePolicyInput{
-		Description: aws.String("frq-sdk-policy"),
+	// req, resp := client.CreateLifecyclePolicyRequest(&ebs.CreateLifecyclePolicyInput{
+	// 	Description: aws.String("frq-sdk-policy"),
 
-	})
+	// })
 
 	err := req.Send()
 	if err == nil { // resp is now filled
-		fmt.Println(resp)
+		log.Println(output)
+	}else{
+		log.Fatal(err)
 	}
 }
 
